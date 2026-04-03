@@ -1,0 +1,36 @@
+[
+  {
+    "id": "lot_001",
+    "supplierId": "supplier_001",
+    "lotName": "Ratnagiri Washed 24A",
+    "region": "Bababudangiri, Karnataka",
+    "altitudeMeters": 1400,
+    "varietals": ["Selection 795", "SLN9"],
+    "process": "Washed",
+    "harvestYear": 2026,
+    "quantityKg": 800,
+    "pricePerKg": 12.5,
+    "cupScore": 86.5,
+    "tastingNotes": ["citrus", "jaggery", "stone fruit"],
+    "exportReady": true,
+    "sampleReady": true,
+    "complianceReady": true
+  },
+  {
+    "id": "lot_002",
+    "supplierId": "supplier_002",
+    "lotName": "Bison Ridge Natural Reserve",
+    "region": "Coorg, Karnataka",
+    "altitudeMeters": 1250,
+    "varietals": ["Cauvery", "Selection 9"],
+    "process": "Natural",
+    "harvestYear": 2026,
+    "quantityKg": 600,
+    "pricePerKg": 13.75,
+    "cupScore": 87.25,
+    "tastingNotes": ["berry", "cacao", "floral"],
+    "exportReady": true,
+    "sampleReady": true,
+    "complianceReady": true
+  }
+]

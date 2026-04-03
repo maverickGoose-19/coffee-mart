@@ -1,0 +1,30 @@
+[
+  {
+    "id": "rec_001",
+    "buyerId": "buyer_001",
+    "lotId": "lot_001",
+    "modelVersion": "rules-v1",
+    "sourceRegionFit": 0.95,
+    "cupProfileFit": 0.92,
+    "commercialFit": 0.86,
+    "logisticsFit": 0.9,
+    "complianceFit": 1.0,
+    "supplierReliabilityFit": 0.82,
+    "recommendationScore": 0.91,
+    "recommendationReason": "Matches your washed Karnataka preference, 120-400kg MOQ range, DHL sample preference, and compliance-ready workflow."
+  },
+  {
+    "id": "rec_002",
+    "buyerId": "buyer_002",
+    "lotId": "lot_002",
+    "modelVersion": "rules-v1",
+    "sourceRegionFit": 0.98,
+    "cupProfileFit": 0.94,
+    "commercialFit": 0.89,
+    "logisticsFit": 0.88,
+    "complianceFit": 0.96,
+    "supplierReliabilityFit": 0.8,
+    "recommendationScore": 0.91,
+    "recommendationReason": "Matches your Coorg natural profile, berry-forward notes, UPS sample preference, and low-friction sample workflow."
+  }
+]

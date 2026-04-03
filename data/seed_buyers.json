@@ -1,0 +1,40 @@
+[
+  {
+    "id": "buyer_001",
+    "companyName": "North Harbor Roasters",
+    "contactName": "Maya Chen",
+    "contactEmail": "maya@northharbor.example",
+    "buyerType": "roaster",
+    "destinationCountry": "US",
+    "preferredRegions": ["Bababudangiri, Karnataka", "Coorg, Karnataka"],
+    "preferredVarietals": ["Selection 795", "SLN9"],
+    "preferredProcesses": ["Washed"],
+    "targetTastingNotes": ["citrus", "stone fruit", "jaggery"],
+    "preferredCertifications": ["Organic"],
+    "minMoqKg": 120,
+    "maxMoqKg": 400,
+    "maxPricePerKg": 14,
+    "requiresSamples": true,
+    "preferredCouriers": ["DHL"],
+    "needsUsComplianceSupport": true
+  },
+  {
+    "id": "buyer_002",
+    "companyName": "Pine Street Coffee",
+    "contactName": "Elena Brooks",
+    "contactEmail": "greenbuyer@pinestreet.example",
+    "buyerType": "cafe",
+    "destinationCountry": "US",
+    "preferredRegions": ["Coorg, Karnataka"],
+    "preferredVarietals": ["Cauvery", "Selection 9"],
+    "preferredProcesses": ["Natural"],
+    "targetTastingNotes": ["berry", "cacao", "floral"],
+    "preferredCertifications": ["Rainforest Alliance"],
+    "minMoqKg": 80,
+    "maxMoqKg": 250,
+    "maxPricePerKg": 15,
+    "requiresSamples": true,
+    "preferredCouriers": ["UPS"],
+    "needsUsComplianceSupport": true
+  }
+]

@@ -1,0 +1,18 @@
+.git
+.github
+.venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.DS_Store
+node_modules
+research
+finance
+legal
+operations
+gtm
+product-docs
+figma design
+data
+Job_Application_Tracker.xlsx

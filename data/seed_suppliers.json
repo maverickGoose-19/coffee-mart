@@ -1,0 +1,60 @@
+[
+  {
+    "id": "supplier_001",
+    "companyName": "Ratnagiri Estate",
+    "contactName": "Anika Rao",
+    "contactEmail": "anika@ratnagiri.example",
+    "region": "Bababudangiri, Karnataka",
+    "website": "https://ratnagiri.example",
+    "altitudeMeters": 1400,
+    "varietals": ["Selection 795", "SLN9"],
+    "certifications": ["Organic"],
+    "description": "Specialty arabica estate producing washed and natural microlots.",
+    "exportsInternationally": true,
+    "exportPartnerName": "Ratnagiri Export House",
+    "exportTerms": "FOB",
+    "minExportOrderKg": 240,
+    "documentationAvailable": {
+      "certificateOfOrigin": true,
+      "phytosanitaryCertificate": true,
+      "invoiceCapability": true
+    },
+    "canShipSamples": true,
+    "sampleSizeGrams": 200,
+    "sampleCouriers": ["DHL", "FedEx"],
+    "sampleShippingPaidBy": "buyer",
+    "samplePrepDays": 2,
+    "sampleShippingDays": 5,
+    "samplePrice": 20,
+    "priorNoticeHandler": "supplier"
+  },
+  {
+    "id": "supplier_002",
+    "companyName": "Bison Ridge Coffee Collective",
+    "contactName": "Rahul Menon",
+    "contactEmail": "rahul@bisonridge.example",
+    "region": "Coorg, Karnataka",
+    "website": "https://bisonridge.example",
+    "altitudeMeters": 1250,
+    "varietals": ["Cauvery", "Selection 9"],
+    "certifications": ["Rainforest Alliance"],
+    "description": "Producer collective focused on high-elevation lots and traceable contracts.",
+    "exportsInternationally": true,
+    "exportPartnerName": "Coorg Mountain Exports",
+    "exportTerms": "EXW",
+    "minExportOrderKg": 300,
+    "documentationAvailable": {
+      "certificateOfOrigin": true,
+      "phytosanitaryCertificate": true,
+      "invoiceCapability": true
+    },
+    "canShipSamples": true,
+    "sampleSizeGrams": 250,
+    "sampleCouriers": ["UPS"],
+    "sampleShippingPaidBy": "supplier",
+    "samplePrepDays": 3,
+    "sampleShippingDays": 6,
+    "samplePrice": 0,
+    "priorNoticeHandler": "broker"
+  }
+]

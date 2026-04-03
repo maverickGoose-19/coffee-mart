@@ -1,0 +1,30 @@
+[
+  {
+    "id": "inq_001",
+    "buyerId": "buyer_001",
+    "supplierId": "supplier_001",
+    "lotId": "lot_001",
+    "destinationCountry": "US",
+    "requestedSampleGrams": 200,
+    "shipmentStatus": "prior_notice_pending",
+    "trackingNumber": null,
+    "courier": "DHL",
+    "priorNoticeRequired": true,
+    "priorNoticeFiled": false,
+    "priorNoticeFiledBy": "supplier"
+  },
+  {
+    "id": "inq_002",
+    "buyerId": "buyer_002",
+    "supplierId": "supplier_002",
+    "lotId": "lot_002",
+    "destinationCountry": "US",
+    "requestedSampleGrams": 250,
+    "shipmentStatus": "shipped",
+    "trackingNumber": "7733445512",
+    "courier": "UPS",
+    "priorNoticeRequired": true,
+    "priorNoticeFiled": true,
+    "priorNoticeFiledBy": "broker"
+  }
+]

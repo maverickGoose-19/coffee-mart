@@ -1,0 +1,11 @@
+ALTER TABLE suppliers
+  ADD COLUMN IF NOT EXISTS wants_to_add_images BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE suppliers
+  ADD COLUMN IF NOT EXISTS estate_image_url TEXT;
+
+ALTER TABLE suppliers
+  ADD COLUMN IF NOT EXISTS coffee_image_url TEXT;
+
+ALTER TABLE suppliers
+  ADD COLUMN IF NOT EXISTS gallery_image_urls TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
