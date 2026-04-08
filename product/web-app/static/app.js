@@ -80,6 +80,16 @@ async function postJson(url, payload) {
   return { response, result };
 }
 
+async function patchJson(url, payload) {
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json();
+  return { response, result };
+}
+
 async function trackInteraction(lotId, interactionType, sourceSurface) {
   if (!lotId || !interactionType) return;
   try {
@@ -134,22 +144,34 @@ function renderReviewCards(reviews, emptyText) {
   `;
 }
 
-function renderChangeRequestList(requests, emptyText) {
+function renderChangeRequestList(requests, emptyText, showAdminActions = false) {
   if (!requests?.length) {
     return `<p class="lead">${emptyText}</p>`;
   }
   return `
     <div class="review-stack">
-      ${requests.map((request) => `
-        <div class="review-card">
-          <div class="review-card-head">
-            <strong>${request.entity_type || request.entityType} update</strong>
-            <span>${request.status}</span>
+      ${requests.map((request) => {
+        const status = request.status;
+        const isPending = status === "pending";
+        const adminBtns = showAdminActions && isPending ? `
+          <div style="margin-top:8px;display:flex;gap:8px;">
+            <button class="button admin-change-request-btn" style="font-size:12px;padding:4px 12px;background:#16a34a;border-color:#16a34a"
+              data-request-id="${request.id}" data-decision="approved">✓ Approve</button>
+            <button class="button-secondary admin-change-request-btn" style="font-size:12px;padding:4px 12px;color:#dc2626;border-color:#dc2626"
+              data-request-id="${request.id}" data-decision="rejected">✗ Deny</button>
+          </div>` : "";
+        return `
+          <div class="review-card" id="chgreq-${request.id}">
+            <div class="review-card-head">
+              <strong>${request.entity_type || request.entityType} update</strong>
+              <span class="badge ${status === "approved" ? "" : status === "rejected" ? "warn" : "muted"}">${status}</span>
+            </div>
+            <p class="lead">Changed fields: ${(request.changed_fields || request.changedFields || []).join(", ")}</p>
+            <div class="review-meta">Request ${request.id}</div>
+            ${adminBtns}
           </div>
-          <p class="lead">Changed fields: ${(request.changed_fields || request.changedFields || []).join(", ")}</p>
-          <div class="review-meta">Request ${request.id}</div>
-        </div>
-      `).join("")}
+        `;
+      }).join("")}
     </div>
   `;
 }
@@ -1145,6 +1167,8 @@ function renderInquiryTracking(pathname) {
           </div>
         </div>
         ${user ? `
+        <div id="inquiry-action-banner" class="success-banner hidden"></div>
+        <div id="inquiry-action-error" class="error-banner hidden"></div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -1157,12 +1181,13 @@ function renderInquiryTracking(pathname) {
                 <th>Courier</th>
                 <th>Tracking</th>
                 <th>Prior Notice</th>
+                ${user.role === "supplier" || user.role === "buyer" ? "<th>Action</th>" : ""}
               </tr>
             </thead>
             <tbody>
               ${inquiries.map((inquiry) => `
                 <tr>
-                  <td>${inquiry.id}</td>
+                  <td style="font-size:11px;color:#888">${inquiry.id}</td>
                   <td>${inquiry.buyer_name}</td>
                   <td>${inquiry.supplier_name}</td>
                   <td>${inquiry.lot_name}</td>
@@ -1170,6 +1195,7 @@ function renderInquiryTracking(pathname) {
                   <td>${inquiry.courier || "-"}</td>
                   <td>${inquiry.tracking_number || "-"}</td>
                   <td>${inquiry.prior_notice_filed ? `Filed by ${inquiry.prior_notice_filed_by}` : `Pending (${inquiry.prior_notice_filed_by || "unassigned"})`}</td>
+                  ${user.role === "supplier" || user.role === "buyer" ? `<td>${roleShipmentButtons(inquiry, user.role)}</td>` : ""}
                 </tr>
               `).join("")}
             </tbody>
@@ -1218,6 +1244,38 @@ function renderInquiryTracking(pathname) {
     </div>
   `;
   bindGlobalActions();
+
+  // Wire supplier/buyer shipment action buttons
+  document.querySelectorAll(".role-shipment-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const inquiryId = btn.dataset.inquiryId;
+      const newStatus = btn.dataset.status;
+      const banner = document.getElementById("inquiry-action-banner");
+      const errorEl = document.getElementById("inquiry-action-error");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      const payload = { shipmentStatus: newStatus };
+      if (newStatus === "shipped") {
+        payload.courier = prompt("Enter courier name (e.g. FedEx, DHL):") || "TBD";
+        payload.trackingNumber = prompt("Enter tracking number:") || "TBD";
+      }
+      const { response, result } = await patchJson(`/api/inquiries/${inquiryId}/shipment`, payload);
+      if (response.ok) {
+        banner.textContent = `Inquiry updated → ${newStatus}`;
+        banner.classList.remove("hidden");
+        errorEl.classList.add("hidden");
+        await refreshBootstrap();
+        renderInquiryTracking(pathname);
+      } else {
+        errorEl.textContent = result?.detail || "Error updating shipment status";
+        errorEl.classList.remove("hidden");
+        banner.classList.add("hidden");
+        btn.disabled = false;
+        btn.textContent = newStatus;
+      }
+    });
+  });
+
   document.querySelectorAll(".buyer-review-form").forEach((form) => {
     if (form.dataset.bound === "true") return;
     form.dataset.bound = "true";
@@ -1244,6 +1302,44 @@ function renderInquiryTracking(pathname) {
       renderInquiryTracking(pathname);
     });
   });
+}
+
+// Returns action buttons for supplier/buyer roles based on valid transitions
+function roleShipmentButtons(inq, role) {
+  const supplierTransitions = {
+    approved:             [{ status: "sample_preparing", label: "Start Sample Prep" }],
+    sample_preparing:     [{ status: "prior_notice_pending", label: "Prior Notice Pending" }, { status: "shipped", label: "Mark Shipped" }],
+    prior_notice_pending: [{ status: "shipped", label: "Mark Shipped" }],
+  };
+  const buyerTransitions = {
+    shipped:   [{ status: "delivered", label: "Confirm Delivered" }],
+    delivered: [{ status: "closed", label: "Close Deal" }],
+  };
+  const actions = (role === "supplier" ? supplierTransitions : buyerTransitions)[inq.shipment_status] || [];
+  if (!actions.length) return '<span class="lead">—</span>';
+  return actions.map((a) =>
+    `<button class="button-secondary role-shipment-btn" style="font-size:12px;padding:4px 10px;margin-right:4px"
+       data-inquiry-id="${inq.id}" data-status="${a.status}">${a.label}</button>`
+  ).join("");
+}
+
+// Returns action buttons for each valid admin transition from the current status
+function adminShipmentButtons(inq) {
+  const transitions = {
+    new:                    [{ status: "approved", label: "Approve" }, { status: "closed", label: "Close" }],
+    approved:               [{ status: "sample_preparing", label: "Mark Sample Preparing" }],
+    sample_preparing:       [{ status: "prior_notice_pending", label: "Prior Notice Pending" }, { status: "shipped", label: "Mark Shipped" }],
+    prior_notice_pending:   [{ status: "shipped", label: "Mark Shipped" }],
+    shipped:                [{ status: "delivered", label: "Mark Delivered" }],
+    delivered:              [{ status: "closed", label: "Close Deal" }],
+    closed:                 [],
+  };
+  const actions = transitions[inq.shipment_status] || [];
+  if (!actions.length) return '<span class="lead">—</span>';
+  return actions.map((a) =>
+    `<button class="button-secondary admin-shipment-btn" style="margin-right:6px;font-size:12px;padding:4px 10px"
+       data-inquiry-id="${inq.id}" data-status="${a.status}">${a.label}</button>`
+  ).join("");
 }
 
 function renderAdmin(pathname) {
@@ -1354,13 +1450,106 @@ function renderAdmin(pathname) {
         </div>
         <div class="panel">
           <h3>Profile Change Requests</h3>
-          ${renderChangeRequestList(changeRequests, "No pending profile change requests right now.")}
+          <div id="admin-chgreq-banner" class="success-banner hidden"></div>
+          <div id="admin-chgreq-error" class="error-banner hidden"></div>
+          ${renderChangeRequestList(changeRequests, "No pending profile change requests right now.", true)}
+        </div>
+        <div class="panel">
+          <h3>Inquiry Management</h3>
+          <p class="lead">Approve, advance, or close inquiries. Actions available depend on the current shipment stage.</p>
+          <div id="admin-inquiry-banner" class="success-banner hidden"></div>
+          <div id="admin-inquiry-error" class="error-banner hidden"></div>
+          ${state.bootstrap.inquiries && state.bootstrap.inquiries.length ? `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Buyer</th>
+                  <th>Supplier</th>
+                  <th>Lot</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${state.bootstrap.inquiries.map((inq) => `
+                  <tr>
+                    <td style="font-size:11px;color:#888">${inq.id}</td>
+                    <td>${inq.buyer_name}</td>
+                    <td>${inq.supplier_name}</td>
+                    <td>${inq.lot_name}</td>
+                    <td><span class="badge ${inq.shipment_status === "new" ? "warn" : inq.shipment_status === "closed" ? "muted" : ""}">${inq.shipment_status}</span></td>
+                    <td>${adminShipmentButtons(inq)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+          ` : `<p class="lead">No inquiries yet.</p>`}
         </div>
       </main>
       ${footer()}
     </div>
   `;
   bindGlobalActions();
+
+  // Wire up shipment action buttons
+  document.querySelectorAll(".admin-shipment-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const inquiryId = btn.dataset.inquiryId;
+      const newStatus = btn.dataset.status;
+      const banner = document.getElementById("admin-inquiry-banner");
+      const errorEl = document.getElementById("admin-inquiry-error");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      const payload = { shipmentStatus: newStatus };
+      if (newStatus === "shipped") {
+        payload.courier = "TBD";
+        payload.trackingNumber = "TBD";
+      }
+      const { response, result } = await patchJson(`/api/inquiries/${inquiryId}/shipment`, payload);
+      if (response.ok) {
+        banner.textContent = `Inquiry ${inquiryId} → ${newStatus}`;
+        banner.classList.remove("hidden");
+        errorEl.classList.add("hidden");
+        await refreshBootstrap();
+        renderAdmin(window.location.pathname);
+      } else {
+        errorEl.textContent = result?.detail || `Error updating inquiry`;
+        errorEl.classList.remove("hidden");
+        banner.classList.add("hidden");
+        btn.disabled = false;
+        btn.textContent = newStatus;
+      }
+    });
+  });
+
+  // Wire up profile change request approve/deny buttons
+  document.querySelectorAll(".admin-change-request-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const requestId = btn.dataset.requestId;
+      const decision = btn.dataset.decision;
+      const banner = document.getElementById("admin-chgreq-banner");
+      const errorEl = document.getElementById("admin-chgreq-error");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      const { response, result } = await patchJson(`/api/profile-change-requests/${requestId}/decision`, { decision });
+      if (response.ok) {
+        banner.textContent = `Change request ${requestId} ${decision}.`;
+        banner.classList.remove("hidden");
+        errorEl.classList.add("hidden");
+        await refreshBootstrap();
+        renderAdmin(window.location.pathname);
+      } else {
+        errorEl.textContent = result?.detail || "Error processing change request";
+        errorEl.classList.remove("hidden");
+        banner.classList.add("hidden");
+        btn.disabled = false;
+        btn.textContent = decision === "approved" ? "✓ Approve" : "✗ Deny";
+      }
+    });
+  });
 }
 
 function onboardingSection(title, description, content) {
@@ -1482,6 +1671,36 @@ function renderSupplierOnboarding(pathname, flashMessage = "") {
                 <a class="button-secondary" href="/inquiries">See Live Inquiries</a>
               </div>
             </form>
+            ${isEditing ? (() => {
+              const pendingInquiries = (state.bootstrap.inquiries || []).filter(inq => inq.shipment_status === "new");
+              return `
+              <div class="panel" style="margin-top:18px;border-left:3px solid #f59e0b;">
+                <h3>⏳ Pending Sample Requests</h3>
+                <p class="lead">These buyers are waiting for your response. Accept to begin sample preparation, or decline to close the request.</p>
+                <div id="supplier-accept-banner" class="success-banner hidden"></div>
+                <div id="supplier-accept-error" class="error-banner hidden"></div>
+                ${pendingInquiries.length ? `
+                <div class="review-stack">
+                  ${pendingInquiries.map(inq => `
+                    <div class="review-card">
+                      <div class="review-card-head">
+                        <strong>${inq.buyer_name}</strong>
+                        <span class="badge warn">awaiting response</span>
+                      </div>
+                      <p class="lead">Lot: ${inq.lot_name} &nbsp;·&nbsp; Destination: ${inq.destination_country}</p>
+                      ${inq.buyer_message ? `<p class="lead" style="font-style:italic">"${inq.buyer_message}"</p>` : ""}
+                      <div style="display:flex;gap:8px;margin-top:8px;">
+                        <button class="button supplier-accept-btn" style="background:#16a34a;border-color:#16a34a;font-size:13px;padding:6px 16px"
+                          data-inquiry-id="${inq.id}" data-action="approved">✓ Accept Request</button>
+                        <button class="button-secondary supplier-accept-btn" style="color:#dc2626;border-color:#dc2626;font-size:13px;padding:6px 16px"
+                          data-inquiry-id="${inq.id}" data-action="closed">✗ Decline</button>
+                      </div>
+                    </div>
+                  `).join("")}
+                </div>
+                ` : `<p class="lead">No pending requests right now.</p>`}
+              </div>`;
+            })() : ""}
             <div class="panel" style="margin-top:18px;">
               <h3>Supplier Reviews</h3>
               ${renderReviewCards(reviews, "No supplier reviews yet. Buyer-side ratings will appear here once customers start reviewing this supplier.")}
@@ -1499,6 +1718,33 @@ function renderSupplierOnboarding(pathname, flashMessage = "") {
     </div>
   `;
   bindGlobalActions();
+
+  // Wire Accept / Decline buttons for pending inquiries
+  document.querySelectorAll(".supplier-accept-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const inquiryId = btn.dataset.inquiryId;
+      const action = btn.dataset.action;
+      const banner = document.getElementById("supplier-accept-banner");
+      const errorEl = document.getElementById("supplier-accept-error");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      const { response, result } = await patchJson(`/api/inquiries/${inquiryId}/shipment`, { shipmentStatus: action });
+      if (response.ok) {
+        const label = action === "approved" ? "accepted" : "declined";
+        banner.textContent = `Inquiry ${label}. The buyer will be notified.`;
+        banner.classList.remove("hidden");
+        errorEl.classList.add("hidden");
+        await refreshBootstrap();
+        renderSupplierOnboarding(pathname);
+      } else {
+        errorEl.textContent = result?.detail || "Error updating inquiry";
+        errorEl.classList.remove("hidden");
+        banner.classList.add("hidden");
+        btn.disabled = false;
+        btn.textContent = action === "approved" ? "✓ Accept Request" : "✗ Decline";
+      }
+    });
+  });
 
   const form = document.getElementById("supplier-form");
   form.addEventListener("submit", async (event) => {

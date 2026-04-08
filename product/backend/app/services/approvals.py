@@ -80,6 +80,31 @@ class ApprovalService:
             self.notifier.notify_profile_change_request(request)
         return request
 
+    def decide_change_request(self, user: dict | None, request_id: str, decision: str) -> dict:
+        """Admin-only: approve or reject a pending profile change request."""
+        if not user or user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Admin sign-in required")
+        if decision not in ("approved", "rejected"):
+            raise HTTPException(status_code=422, detail="decision must be 'approved' or 'rejected'")
+        row = self.approval_repo.get_change_request_by_id(request_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Change request not found")
+        if row.get("status") != "pending":
+            raise HTTPException(status_code=409, detail=f"Request is already {row['status']}")
+        if decision == "approved":
+            self.approval_repo.approve_change_request(request_id, user["id"])
+        else:
+            self.approval_repo.reject_change_request(request_id, user["id"])
+        result = {
+            "id": request_id,
+            "decision": decision,
+            "entityType": row["entity_type"],
+            "entityId": row["entity_id"],
+        }
+        if self.notifier:
+            self.notifier.notify_profile_change_decision(row, decision)
+        return result
+
     def submit_supplier_change_request(self, user: dict | None, payload: dict) -> dict:
         if not user or user.get("role") != "supplier" or not user.get("supplier_id"):
             raise HTTPException(status_code=403, detail="Supplier sign-in required")

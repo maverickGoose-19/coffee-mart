@@ -174,8 +174,11 @@ class InquiryRepository:
               i.prior_notice_filed,
               i.prior_notice_filed_by,
               i.buyer_message,
-              i.source_surface
+              i.source_surface,
+              b.contact_email AS buyer_email,
+              b.company_name AS buyer_company
             FROM buyer_inquiries i
+            LEFT JOIN buyers b ON b.id = i.buyer_id
             WHERE i.id = %s
             """,
             (inquiry_id,),

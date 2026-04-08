@@ -129,6 +129,10 @@ def submit_buyer_change_request(user: dict | None, payload: BuyerCreateRequest) 
     return approval_service.submit_buyer_change_request(user, payload.model_dump(mode="json"))
 
 
+def decide_change_request(user: dict | None, request_id: str, decision: str) -> dict:
+    return approval_service.decide_change_request(user, request_id, decision)
+
+
 def create_interaction(user: dict | None, payload: InteractionCreateRequest) -> dict:
     return recommendation_service.create_interaction(user, payload.model_dump(mode="json"))
 
