@@ -19,6 +19,7 @@ from .models import (
     InquiryCreateRequest,
     InteractionCreateRequest,
     RecommendationSurveyRequest,
+    ShipmentUpdateRequest,
     SignInRequest,
     SupplierCreateRequest,
     SupplierReviewCreateRequest,
@@ -33,6 +34,7 @@ from .service import (
     create_buyer_review,
     create_inquiry,
     create_interaction,
+    update_inquiry_shipment,
     create_supplier_account,
     create_supplier_review,
     current_user_from_request,
@@ -187,6 +189,15 @@ def api_supplier_update_request(payload: SupplierCreateRequest, user=Depends(cur
 @app.post("/api/inquiries", status_code=201)
 def api_inquiries(payload: InquiryCreateRequest, user=Depends(current_user)):
     return create_inquiry(user, payload)
+
+
+@app.patch("/api/inquiries/{inquiry_id}/shipment")
+def api_patch_inquiry_shipment(
+    inquiry_id: str,
+    payload: ShipmentUpdateRequest,
+    user=Depends(current_user),
+):
+    return update_inquiry_shipment(user, inquiry_id, payload.model_dump(mode="json"))
 
 
 @app.post("/api/recommendation-survey", status_code=201)

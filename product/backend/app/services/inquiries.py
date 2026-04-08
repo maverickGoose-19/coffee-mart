@@ -4,6 +4,21 @@ from fastapi import HTTPException
 
 from ..utils import clean_number, clean_text
 
+# ---------------------------------------------------------------------------
+# Shipment state machine
+# ---------------------------------------------------------------------------
+# Maps (from_status, to_status) → set of roles allowed to make that transition.
+_VALID_TRANSITIONS: dict[tuple[str, str], set[str]] = {
+    ("new", "approved"):                    {"supplier", "admin"},
+    ("new", "closed"):                      {"supplier", "admin"},
+    ("approved", "sample_preparing"):       {"supplier", "admin"},
+    ("sample_preparing", "prior_notice_pending"): {"supplier", "admin"},
+    ("sample_preparing", "shipped"):        {"supplier", "admin"},
+    ("prior_notice_pending", "shipped"):    {"supplier", "admin"},
+    ("shipped", "delivered"):               {"buyer", "admin"},
+    ("delivered", "closed"):               {"buyer", "admin"},
+}
+
 
 class InquiryService:
     def __init__(self, inquiry_repo, recommendation_repo, notifier=None):
@@ -64,6 +79,85 @@ class InquiryService:
 
     def has_completed_relationship(self, buyer_id: str, supplier_id: str) -> bool:
         return self.inquiry_repo.has_completed_relationship(buyer_id, supplier_id)
+
+    def update_shipment_status(self, user: dict | None, inquiry_id: str, payload: dict) -> dict:
+        # --- Auth: must be signed in ---
+        if not user or not user.get("role"):
+            raise HTTPException(status_code=401, detail="Authentication required")
+
+        role = user["role"]
+        if role not in {"admin", "supplier", "buyer"}:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+        # --- Fetch inquiry ---
+        inquiry = self.inquiry_repo.get_inquiry_by_id(inquiry_id)
+        if not inquiry:
+            raise HTTPException(status_code=404, detail="Inquiry not found")
+
+        current_status = inquiry["shipment_status"]
+        new_status = payload["shipmentStatus"]
+
+        # --- Ownership checks ---
+        if role == "supplier":
+            if inquiry.get("supplier_id") != user.get("supplier_id"):
+                raise HTTPException(status_code=403, detail="You can only update shipments for your own lots")
+        elif role == "buyer":
+            if inquiry.get("buyer_id") != user.get("buyer_id"):
+                raise HTTPException(status_code=403, detail="You can only update your own inquiries")
+
+        # --- Transition validity ---
+        allowed_roles = _VALID_TRANSITIONS.get((current_status, new_status))
+        if allowed_roles is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid transition: '{current_status}' → '{new_status}' is not allowed",
+            )
+        if role not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Your role '{role}' cannot make the transition '{current_status}' → '{new_status}'",
+            )
+
+        # --- Business rules ---
+        # tracking_number + courier required when shipping
+        if new_status == "shipped":
+            if not payload.get("trackingNumber") or not payload.get("courier"):
+                raise HTTPException(
+                    status_code=422,
+                    detail="trackingNumber and courier are required when setting status to 'shipped'",
+                )
+
+        # Cannot skip prior_notice_pending for US shipments
+        if (
+            current_status == "sample_preparing"
+            and new_status == "shipped"
+            and inquiry.get("prior_notice_required")
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="US shipments require prior_notice_pending before shipped",
+            )
+
+        # --- Persist ---
+        updated = self.inquiry_repo.update_inquiry_shipment(
+            inquiry_id,
+            shipment_status=new_status,
+            tracking_number=payload.get("trackingNumber"),
+            courier=payload.get("courier"),
+            prior_notice_filed=payload.get("priorNoticeFiled") or None,
+            prior_notice_filed_by=payload.get("priorNoticeFiledBy"),
+        )
+
+        # --- Log deal_closed interaction ---
+        if new_status == "closed":
+            self.recommendation_repo.log_buyer_interaction(
+                buyer_id=inquiry["buyer_id"],
+                lot_id=inquiry["lot_id"],
+                interaction_type="deal_closed",
+                source_surface="shipment_update",
+            )
+
+        return updated or {}
 
     def get_inquiries_for_user(self, current_user: dict | None) -> list[dict]:
         if not current_user:

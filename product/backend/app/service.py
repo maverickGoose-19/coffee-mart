@@ -137,6 +137,10 @@ def create_inquiry(user: dict | None, payload: InquiryCreateRequest) -> dict:
     return inquiry_service.create_inquiry(user, payload.model_dump(mode="json"))
 
 
+def update_inquiry_shipment(user: dict | None, inquiry_id: str, payload: dict) -> dict:
+    return inquiry_service.update_shipment_status(user, inquiry_id, payload)
+
+
 def has_completed_relationship(buyer_id: str, supplier_id: str) -> bool:
     return inquiry_service.has_completed_relationship(buyer_id, supplier_id)
 

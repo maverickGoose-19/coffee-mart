@@ -158,6 +158,61 @@ class InquiryRepository:
             (buyer_id,),
         )
 
+    def get_inquiry_by_id(self, inquiry_id: str) -> dict | None:
+        return query_one(
+            """
+            SELECT
+              i.id,
+              i.buyer_id,
+              i.supplier_id,
+              i.lot_id,
+              i.destination_country,
+              i.shipment_status,
+              i.tracking_number,
+              i.courier,
+              i.prior_notice_required,
+              i.prior_notice_filed,
+              i.prior_notice_filed_by,
+              i.buyer_message,
+              i.source_surface
+            FROM buyer_inquiries i
+            WHERE i.id = %s
+            """,
+            (inquiry_id,),
+        )
+
+    def update_inquiry_shipment(
+        self,
+        inquiry_id: str,
+        *,
+        shipment_status: str,
+        tracking_number: str | None = None,
+        courier: str | None = None,
+        prior_notice_filed: bool | None = None,
+        prior_notice_filed_by: str | None = None,
+    ) -> dict | None:
+        # Build a dynamic SET clause for only the non-None fields
+        fields: list[str] = ["shipment_status = %s"]
+        values: list = [shipment_status]
+        if tracking_number is not None:
+            fields.append("tracking_number = %s")
+            values.append(tracking_number)
+        if courier is not None:
+            fields.append("courier = %s")
+            values.append(courier)
+        if prior_notice_filed is not None:
+            fields.append("prior_notice_filed = %s")
+            values.append(prior_notice_filed)
+        if prior_notice_filed_by is not None:
+            fields.append("prior_notice_filed_by = %s")
+            values.append(prior_notice_filed_by)
+        values.append(inquiry_id)
+        execute(
+            f"UPDATE buyer_inquiries SET {', '.join(fields)} WHERE id = %s",
+            tuple(values),
+        )
+        return self.get_inquiry_by_id(inquiry_id)
+
     def get_supplier_inquiries(self, supplier_id: str) -> list[dict]:
         return query_all(
             """

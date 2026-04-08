@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -104,6 +104,21 @@ class BuyerReviewCreateRequest(BaseModel):
     buyerId: str
     rating: int = Field(ge=1, le=5)
     reviewText: str | None = None
+
+
+class ShipmentUpdateRequest(BaseModel):
+    shipmentStatus: Literal[
+        "approved",
+        "sample_preparing",
+        "prior_notice_pending",
+        "shipped",
+        "delivered",
+        "closed",
+    ]
+    courier: str | None = None
+    trackingNumber: str | None = None
+    priorNoticeFiled: bool = False
+    priorNoticeFiledBy: Literal["supplier", "buyer", "broker"] | None = None
 
 
 class JsonEnvelope(BaseModel):
