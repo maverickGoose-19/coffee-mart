@@ -107,3 +107,84 @@ class EmailNotifier:
             f"Status: {request['status']}\n"
         )
         self._send(subject, body)
+
+    def notify_profile_change_decision(self, request: dict, decision: str) -> None:
+        """Notify supplier/buyer that their profile change request was approved or rejected."""
+        entity_type = request.get("entity_type") or request.get("entityType", "entity")
+        entity_id = request.get("entity_id") or request.get("entityId", "")
+        changed = request.get("changed_fields") or request.get("changedFields") or []
+        verb = "approved" if decision == "approved" else "rejected"
+        subject = f"Profile update {verb}: {entity_type} {entity_id}"
+        body = (
+            f"Your profile change request has been {verb} by an admin.\n\n"
+            f"Request ID: {request['id']}\n"
+            f"Entity: {entity_type} {entity_id}\n"
+            f"Changed fields: {', '.join(changed)}\n\n"
+        )
+        body += (
+            "Your profile has been updated with the requested changes.\n"
+            if decision == "approved"
+            else "Your current profile has not been changed. Contact support if you have questions.\n"
+        )
+        self._send(subject, body)
+
+    def notify_inquiry_accepted(self, inquiry: dict) -> None:
+        """Notify buyer that their sample request was accepted."""
+        inquiry_id = inquiry.get("id", "")
+        lot_id = inquiry.get("lot_id", "")
+        buyer_email = inquiry.get("buyer_email")
+        subject = f"Sample request accepted — Inquiry {inquiry_id}"
+        body = (
+            f"Great news! The supplier has accepted your sample request.\n\n"
+            f"Inquiry ID: {inquiry_id}\n"
+            f"Lot: {lot_id}\n"
+            f"Next step: The supplier will begin preparing your sample.\n\n"
+            f"Track progress in your Inquiries dashboard.\n"
+        )
+        self._send_to_buyer(buyer_email, subject, body)
+
+    def notify_inquiry_rejected(self, inquiry: dict) -> None:
+        """Notify buyer that their sample request was rejected."""
+        inquiry_id = inquiry.get("id", "")
+        lot_id = inquiry.get("lot_id", "")
+        buyer_email = inquiry.get("buyer_email")
+        subject = f"Sample request not accepted — Inquiry {inquiry_id}"
+        body = (
+            f"The supplier was unable to accept your sample request at this time.\n\n"
+            f"Inquiry ID: {inquiry_id}\n"
+            f"Lot: {lot_id}\n"
+            f"Status: Closed\n\n"
+            f"Browse other available lots in the catalog and submit a new request.\n"
+        )
+        self._send_to_buyer(buyer_email, subject, body)
+
+    def _send_to_buyer(self, buyer_email: str | None, subject: str, body: str) -> bool:
+        """Send to a buyer's email directly, falling back to the platform alert address."""
+        if not buyer_email:
+            return self._send(subject, body)
+        if settings.resend_api_key and settings.resend_from_email:
+            payload = {
+                "from": settings.resend_from_email,
+                "to": [buyer_email],
+                "subject": subject,
+                "text": body,
+            }
+            if settings.resend_reply_to:
+                payload["reply_to"] = settings.resend_reply_to
+            request = Request(
+                "https://api.resend.com/emails",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {settings.resend_api_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "coffee-platform/0.1",
+                },
+                method="POST",
+            )
+            try:
+                with urlopen(request, timeout=15) as response:
+                    if 200 <= response.status < 300:
+                        return True
+            except (HTTPError, URLError):
+                pass
+        return self._send(subject, body)

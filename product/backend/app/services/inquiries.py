@@ -157,6 +157,13 @@ class InquiryService:
                 source_surface="shipment_update",
             )
 
+        # --- Notify buyer on supplier accept/reject ---
+        if self.notifier and updated:
+            if current_status == "new" and new_status == "approved":
+                self.notifier.notify_inquiry_accepted(updated)
+            elif current_status == "new" and new_status == "closed":
+                self.notifier.notify_inquiry_rejected(updated)
+
         return updated or {}
 
     def get_inquiries_for_user(self, current_user: dict | None) -> list[dict]:

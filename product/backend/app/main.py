@@ -47,6 +47,7 @@ from .service import (
     sign_out,
     submit_buyer_change_request,
     submit_supplier_change_request,
+    decide_change_request,
 )
 
 logging.basicConfig(
@@ -184,6 +185,11 @@ def api_interactions(payload: InteractionCreateRequest, user=Depends(current_use
 @app.post("/api/suppliers/update-request", status_code=201)
 def api_supplier_update_request(payload: SupplierCreateRequest, user=Depends(current_user)):
     return submit_supplier_change_request(user, payload)
+
+
+@app.patch("/api/profile-change-requests/{request_id}/decision")
+def api_decide_change_request(request_id: str, payload: dict, user=Depends(current_user)):
+    return decide_change_request(user, request_id, payload.get("decision", ""))
 
 
 @app.post("/api/inquiries", status_code=201)
